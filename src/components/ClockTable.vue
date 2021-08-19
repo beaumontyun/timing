@@ -7,14 +7,16 @@
     >
       <div id="addTrigger">
         <!-- TODO setDate to pass data to backend (no PUT/UPDATE, only POST), {{ date }} to be fetched -->
-        <div v-if="clicked" @click="startTimer" class="mb-2">add timer</div>
+        <div v-if="clicked" @click="startTimer" class="pb-2 pt-2">
+          add timer
+        </div>
 
         <!-- TODO Timer container to be moved to a component file -->
         <div id="clockContainer">
           <!-- 1. Date -->
-          <div id="dateContainer" class="container mb-2">Date: {{ date }}</div>
+          <div id="dateContainer" class="container pb-2">Date: {{ date }}</div>
           <!-- 1. Title  -->
-          <form action="">
+          <form action="" class="pb-2">
             <input
               type="text"
               v-model="title"
@@ -25,34 +27,34 @@
           </form>
           <div
             id="timerContainer"
-            class="w-1/2 container flex justify-between items-center mb-2"
+            class="w-1/2 container flex justify-between items-center pb-2"
           >
             <!-- 2. minus sign -->
-            <MinusIcon @click="timerAmended = !timerAmended" class="w-4 h-4" />
+            <MinusIcon @click="minusSeconds" class="w-4 h-4" />
             <!-- 2. Timer -->
             {{ hour }} : {{ min }} : {{ sec }}
             <!-- 2. plus sign -->
-            <PlusIcon @click="timerAmended = !timerAmended" class="w-4 h-4" />
+            <PlusIcon @click="addSeconds" class="w-4 h-4" />
           </div>
           <!-- 3. hidden - show form for reason to amend time -->
-          <div v-if="timerAmended" class="mb-2">
+          <div v-if="timerAmended" class="pb-2">
             <form action="">
               <input
                 type="text"
-                v-model="title"
-                title="title"
+                v-model="amendment"
+                amendment="amendment"
                 placeholder="Reason for amendment"
                 class="w-3/4 rounded"
               />
             </form>
           </div>
           <!-- 4. work description -->
-          <div class="mb-2">
+          <div class="pb-2">
             <form action="">
               <input
                 type="text"
                 v-model="description"
-                title="title"
+                description="description"
                 placeholder="description"
                 class="w-3/4 rounded"
               />
@@ -63,7 +65,9 @@
             class="w-1/2 container flex justify-between"
           >
             <!-- 5. delete timer -->
-            <div><input type="submit" value="delete" /></div>
+            <div @click="resetAttributes">
+              <input type="submit" value="delete" />
+            </div>
             <!-- 6. play/pause timer -->
             <div
               v-if="play"
@@ -90,6 +94,8 @@
       </div>
     </div>
     <br />
+
+    <!-- TODO split into a separate component - use props to get data -->
     <!-- Report section -->
     <div
       id="reportContainer"
@@ -107,13 +113,15 @@ export default {
   data: () => {
     return {
       clicked: true,
-      date: "",
+      date: null,
       timestamp: "",
       title: "",
+      amendment: "",
       description: "",
-      play: true,
+      play: false,
       timeAdded: 0,
       timerAmended: false,
+      unamendedTime: 0,
       totalSeconds: 0,
       hour: 0,
       min: 0,
@@ -125,11 +133,43 @@ export default {
     MinusIcon,
   },
   methods: {
-    addSeconds: function () {
-      
+    addSeconds: function (event) {
+      if (this.totalSeconds == 0) {
+        event.preventDefault();
+        console.log("preventDefault triggered");
+      } else {
+        this.totalSeconds = this.totalSeconds + 10;
+        if (this.unamendedTime !== this.totalSeconds) {
+          this.timerAmended = true;
+        } else {
+          this.timerAmended = false;
+        }
+      }
     },
-    minusSeconds: function () {
-
+    minusSeconds: function (event) {
+      if (this.totalSeconds == 0) {
+        event.preventDefault();
+        console.log("preventDefault triggered");
+      } else if (this.totalSeconds <= 0) {
+        // if totalSeconds is less then 0, reduce it to 0
+        this.totalSeconds = 0;
+      } else if (this.totalSeconds >= 0) {
+        // if totalSeconds is greater than 0...
+        // calculate totalSeconds minus 10...
+        var reducer = Math.abs(this.totalSeconds - 10);
+        // if calculated totalSeconds is less than current totalSeconds (i.e. negative number), set totalSeconds to 0
+        if (reducer > this.totalSeconds) {
+          this.totalSeconds = 0;
+        } else {
+          // else, set totalSeconds to the reducer's number
+          this.totalSeconds = reducer;
+        }
+      }
+      if (this.unamendedTime !== this.totalSeconds) {
+        this.timerAmended = true;
+      } else {
+        this.timerAmended = false;
+      }
     },
     // setDate to be called only inside startTimer() in order to encapsulate itself in preventDefault
     setDate: function () {
@@ -172,11 +212,14 @@ export default {
       var self = this;
       if (self.totalSeconds !== 0) {
         event.preventDefault();
+        console.log("preventDefault triggered");
       } else {
         // calling setDate function here to encapsulate the function in preventDefault
+        self.play = true;
         self.setDate();
         this.interval = setInterval(function () {
           self.totalSeconds += 1;
+          self.unamendedTime += 1;
 
           self.hour = Math.floor(self.totalSeconds / 3600);
           self.min = Math.floor((self.totalSeconds / 60) % 60);
@@ -184,12 +227,52 @@ export default {
         }, 1000);
       }
     },
-    pauseTimer: function () {
-      clearInterval(this.interval);
-      delete this.interval;
+    // second counter to resolve bug caused by startTimer's preventDefaul.
+    continueTimer: function () {
+      var self = this;
+      this.interval = setInterval(function () {
+        self.totalSeconds += 1;
+        self.unamendedTime += 1;
+
+        self.hour = Math.floor(self.totalSeconds / 3600);
+        self.min = Math.floor((self.totalSeconds / 60) % 60);
+        self.sec = parseInt(self.totalSeconds % 60);
+      }, 1000);
+    },
+    pauseTimer: function (event) {
+      if (this.totalSeconds == 0) {
+        event.preventDefault();
+      } else {
+        clearInterval(this.interval);
+        delete this.interval;
+      }
+      console.log("TotalSeconds =" + this.totalSeconds);
+      console.log("Original time =" + this.unamendedTime);
     },
     resumeTimer: function () {
-      if (!this.interval) this.startTimer();
+      var self = this;
+      if (!this.interval) this.continueTimer();
+      if (this.date == null) {
+        self.setDate();
+      }
+      console.log("TotalSeconds =" + this.totalSeconds);
+      console.log("Original time =" + this.unamendedTime);
+    },
+    resetAttributes: function () {
+      clearInterval(this.interval);
+      delete this.interval;
+      this.date = null;
+      this.timestamp = "";
+      this.title = "";
+      this.description = "";
+      this.play = false;
+      this.timeAdded = 0;
+      this.timerAmended = false;
+      this.unamendedTime = 0;
+      this.totalSeconds = 0;
+      this.hour = 0;
+      this.min = 0;
+      this.sec = 0;
     },
   },
 };
